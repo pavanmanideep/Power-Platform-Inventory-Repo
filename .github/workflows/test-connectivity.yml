@@ -1,0 +1,70 @@
+name: Test Power Platform CLI
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 0 * * 0'  # Weekly test
+
+jobs:
+  test-connectivity:
+    runs-on: ubuntu-latest
+    name: Test Environment Connectivity
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Power Platform CLI
+        run: |
+          npm install -g @microsoft/powerplatform-cli
+          pac --version
+
+      - name: Test Authentication
+        run: |
+          Write-Host "Testing authentication to: ${{ secrets.TENANT_URL }}" -ForegroundColor Cyan
+          
+          pac auth create `
+            --name test-auth `
+            --url "${{ secrets.TENANT_URL }}" `
+            --username "${{ secrets.USER_EMAIL }}" `
+            --password "${{ secrets.CLIENT_SECRET }}"
+          
+          if ($LASTEXITCODE -eq 0) {
+            Write-Host "✓ Authentication successful" -ForegroundColor Green
+          } else {
+            Write-Host "❌ Authentication failed" -ForegroundColor Red
+            exit 1
+          }
+          
+          # List solutions to verify access
+          Write-Host "`nListing solutions in environment..." -ForegroundColor Cyan
+          pac solution list --env test-auth
+          
+          # Cleanup
+          pac auth delete --name test-auth --force
+          Write-Host "`n✓ Test completed successfully" -ForegroundColor Green
+        shell: pwsh
+        env:
+          POWERPLATFORM_CLI_USER_EMAIL: ${{ secrets.USER_EMAIL }}
+          POWERPLATFORM_CLI_USER_PASSWORD: ${{ secrets.CLIENT_SECRET }}
+
+      - name: Generate Test Report
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            const date = new Date().toISOString();
+            const report = {
+              test_date: date,
+              status: '${{ job.status }}',
+              environment: '${{ secrets.TENANT_URL }}',
+              version: '1.0.0'
+            };
+            console.log(JSON.stringify(report, null, 2));

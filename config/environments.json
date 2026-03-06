@@ -1,0 +1,64 @@
+{
+  "environments": [
+    {
+      "name": "ecellorsdev",
+      "displayName": "Development",
+      "url": "https://ecellorsdev.crm8.dynamics.com",
+      "region": "India",
+      "tier": 1,
+      "description": "Development environment"
+    },
+    {
+      "name": "New Features Environment",
+      "displayName": "New Features",
+      "url": "https://ecellors-newfeatures.crm8.dynamics.com",
+      "region": "India",
+      "tier": 2,
+      "description": "Feature development and testing"
+    },
+    {
+      "name": "ecellorstest",
+      "displayName": "Testing",
+      "url": "https://ecellorstest.crm8.dynamics.com",
+      "region": "India",
+      "tier": 3,
+      "description": "Quality assurance and testing"
+    },
+    {
+      "name": "ecellorsuat",
+      "displayName": "UAT",
+      "url": "https://ecellorsuat.crm8.dynamics.com",
+      "region": "India",
+      "tier": 4,
+      "description": "User acceptance testing"
+    },
+    {
+      "name": "ecellorsprod",
+      "displayName": "Production",
+      "url": "https://ecellorsprod.crm8.dynamics.com",
+      "region": "India",
+      "tier": 5,
+      "description": "Production environment"
+    }
+  ],
+  "deploymentRules": {
+    "allowedTransitions": [
+      {
+        "from": "ecellorsdev",
+        "to": ["New Features Environment", "ecellorstest"]
+      },
+      {
+        "from": "New Features Environment",
+        "to": ["ecellorstest"]
+      },
+      {
+        "from": "ecellorstest",
+        "to": ["ecellorsuat"]
+      },
+      {
+        "from": "ecellorsuat",
+        "to": ["ecellorsprod"]
+      }
+    ]
+  }
+}
