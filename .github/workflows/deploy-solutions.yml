@@ -17,9 +17,8 @@ on:
         type: choice
         options:
           - New Features Environment
-          - ecellorstest
-          - ecellorsuat
-          - ecellorsprod
+          - ecellorsnewfeatures
+          
       solution_name:
         description: 'Solution Name (leave empty for all)'
         required: false
@@ -27,11 +26,11 @@ on:
       deployment_mode:
         description: 'Deployment Mode'
         required: true
-        default: 'staged'
+        default: 'upgrade'
         type: choice
         options:
-          - staged
-          - direct
+          - upgrade
+          - update
   
   # Auto-deploy on merge to production branch
   push:
@@ -41,15 +40,9 @@ on:
       - 'solutions/**'
       - '.github/workflows/deploy-solutions.yml'
 
-env:
-  TENANT_URL: ${{ secrets.TENANT_URL }}
-  CLIENT_ID: ${{ secrets.CLIENT_ID }}
-  CLIENT_SECRET: ${{ secrets.CLIENT_SECRET }}
-  TENANT_ID: ${{ secrets.TENANT_ID }}
-
 jobs:
   deploy-solutions:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     name: Deploy Solutions to Target Environment
     
     steps:
@@ -58,153 +51,123 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: Install Power Platform Tools
-        run: |
-          npm install -g @microsoft/powerplatform-cli
-          pac --version
-
       - name: Display Environment Configuration
         run: |
-          echo "=== Deployment Configuration ==="
-          echo "Source Environment: ${{ github.event.inputs.source_environment || 'Auto (main branch)' }}"
-          echo "Target Environment: ${{ github.event.inputs.target_environment }}"
-          echo "Trigger: ${{ github.event_name }}"
-          echo "Branch: ${{ github.ref_name }}"
+          Write-Host "=== Deployment Configuration ===" -ForegroundColor Cyan
+          Write-Host "Source Environment: ${{ github.event.inputs.source_environment || 'ecellorsdev' }}"
+          Write-Host "Target Environment: ${{ github.event.inputs.target_environment }}"
+          Write-Host "Solution Name: ${{ github.event.inputs.solution_name || 'All solutions' }}"
+          Write-Host "Deployment Mode: ${{ github.event.inputs.deployment_mode || 'upgrade' }}"
+          Write-Host "Trigger: ${{ github.event_name }}"
+          Write-Host "Branch: ${{ github.ref_name }}"
+          Write-Host "Actor: ${{ github.actor }}"
+        shell: pwsh
 
-      - name: Authenticate to Dataverse
+      - name: Load Environment URLs
+        id: load-envs
         run: |
-          pac auth create `
-            --name deployment-auth `
-            --username ${{ secrets.USER_EMAIL }} `
-            --password ${{ secrets.CLIENT_SECRET }} `
-            --url ${{ env.TENANT_URL }}
-        env:
-          POWERPLATFORM_CLI_USER_EMAIL: ${{ secrets.USER_EMAIL }}
-          POWERPLATFORM_CLI_USER_PASSWORD: ${{ secrets.CLIENT_SECRET }}
-          POWERPLATFORM_CLI_URL: ${{ env.TENANT_URL }}
-
-      - name: Export Solutions from Source
-        run: |
+          $envConfig = Get-Content -Path "./config/environments.json" | ConvertFrom-Json
+          
           $sourceEnv = "${{ github.event.inputs.source_environment || 'ecellorsdev' }}"
-          Write-Host "Exporting from: $sourceEnv"
-          
-          # Get environment URL from config
-          $envConfig = Get-Content -Path "./config/environments.json" | ConvertFrom-Json
-          $sourceUrl = $envConfig.environments | Where-Object { $_.name -eq $sourceEnv } | Select-Object -ExpandProperty url
-          
-          if (-not $sourceUrl) {
-            Write-Host "::error::Source environment URL not found in config"
-            exit 1
-          }
-          
-          # Create export directory
-          New-Item -ItemType Directory -Path "./exports" -Force | Out-Null
-          
-          pac auth create `
-            --name source-auth `
-            --username ${{ secrets.USER_EMAIL }} `
-            --password ${{ secrets.CLIENT_SECRET }} `
-            --url $sourceUrl `
-            --cloud Public
-          
-          Write-Host "Solutions available in $sourceEnv"
-          pac solution list --env source-auth
-        shell: pwsh
-
-      - name: Export Specific Solution
-        if: github.event.inputs.solution_name != ''
-        run: |
-          $solutionName = "${{ github.event.inputs.solution_name }}"
-          Write-Host "Exporting solution: $solutionName"
-          
-          pac solution export `
-            --env source-auth `
-            --solution-name $solutionName `
-            --path-to-file "./exports/$solutionName.zip" `
-            --managed-solution
-          
-          Write-Host "Solution exported successfully"
-          Get-Item "./exports/$solutionName.zip" | Select-Object -Property Name, Length
-        shell: pwsh
-
-      - name: Publish Solutions to Target Environment
-        run: |
           $targetEnv = "${{ github.event.inputs.target_environment }}"
-          $deploymentMode = "${{ github.event.inputs.deployment_mode || 'staged' }}"
           
-          # Get target environment URL
-          $envConfig = Get-Content -Path "./config/environments.json" | ConvertFrom-Json
+          $sourceUrl = $envConfig.environments | Where-Object { $_.name -eq $sourceEnv } | Select-Object -ExpandProperty url
           $targetUrl = $envConfig.environments | Where-Object { $_.name -eq $targetEnv } | Select-Object -ExpandProperty url
           
-          if (-not $targetUrl) {
-            Write-Host "::error::Target environment URL not found in config"
+          if (-not $sourceUrl) {
+            Write-Host "::error::Source environment '$sourceEnv' not found in config"
             exit 1
           }
           
-          Write-Host "Publishing to: $targetEnv ($targetUrl)"
-          
-          pac auth create `
-            --name target-auth `
-            --username ${{ secrets.USER_EMAIL }} `
-            --password ${{ secrets.CLIENT_SECRET }} `
-            --url $targetUrl `
-            --cloud Public
-          
-          # Import solution
-          foreach ($file in Get-ChildItem "./exports/*.zip") {
-            Write-Host "Importing $($file.Name)..."
-            pac solution import `
-              --env target-auth `
-              --path-to-file $file.FullName `
-              --force-overwrite `
-              --import-as-upgrade `
-              --skip-diagnostics
+          if (-not $targetUrl) {
+            Write-Host "::error::Target environment '$targetEnv' not found in config"
+            exit 1
           }
           
-          Write-Host "✓ Solutions imported successfully"
+          Write-Host "SOURCE_URL=$sourceUrl" >> $env:GITHUB_OUTPUT
+          Write-Host "TARGET_URL=$targetUrl" >> $env:GITHUB_OUTPUT
+          
+          Write-Host "✓ Source URL: $sourceUrl" -ForegroundColor Green
+          Write-Host "✓ Target URL: $targetUrl" -ForegroundColor Green
         shell: pwsh
 
-      - name: Verify Deployment
-        run: |
-          $targetEnv = "${{ github.event.inputs.target_environment }}"
-          Write-Host "Verifying deployment in $targetEnv..."
-          
-          pac solution list --env target-auth
-          
-          Write-Host "✓ Deployment completed successfully"
-        shell: pwsh
+      - name: Who Am I (Source Environment)
+        uses: microsoft/powerplatform-actions/who-am-i@v1
+        with:
+          environment-url: ${{ steps.load-envs.outputs.SOURCE_URL }}
+          app-id: ${{ secrets.CLIENT_ID }}
+          client-secret: ${{ secrets.CLIENT_SECRET }}
+          tenant-id: ${{ secrets.TENANT_ID }}
 
-      - name: Cleanup Authentication
-        if: always()
-        run: |
-          pac auth delete --name source-auth --force
-          pac auth delete --name target-auth --force
-          pac auth delete --name deployment-auth --force
-        shell: pwsh
-        continue-on-error: true
+      - name: Export Solution from Source
+        uses: microsoft/powerplatform-actions/export-solution@v1
+        with:
+          environment-url: ${{ steps.load-envs.outputs.SOURCE_URL }}
+          app-id: ${{ secrets.CLIENT_ID }}
+          client-secret: ${{ secrets.CLIENT_SECRET }}
+          tenant-id: ${{ secrets.TENANT_ID }}
+          solution-name: ${{ github.event.inputs.solution_name }}
+          solution-output-file: 'solution.zip'
+          managed: true
+          run-asynchronously: false
+
+      - name: Who Am I (Target Environment)
+        uses: microsoft/powerplatform-actions/who-am-i@v1
+        with:
+          environment-url: ${{ steps.load-envs.outputs.TARGET_URL }}
+          app-id: ${{ secrets.CLIENT_ID }}
+          client-secret: ${{ secrets.CLIENT_SECRET }}
+          tenant-id: ${{ secrets.TENANT_ID }}
+
+      - name: Import Solution to Target
+        uses: microsoft/powerplatform-actions/import-solution@v1
+        with:
+          environment-url: ${{ steps.load-envs.outputs.TARGET_URL }}
+          app-id: ${{ secrets.CLIENT_ID }}
+          client-secret: ${{ secrets.CLIENT_SECRET }}
+          tenant-id: ${{ secrets.TENANT_ID }}
+          solution-file: 'solution.zip'
+          force-overwrite: true
+          publish-changes: true
+          skip-dependency-check: false
+          convert-to-managed: true
+          run-asynchronously: false
+          use-deployment-settings-file: false
+
+      - name: Publish All Customizations
+        uses: microsoft/powerplatform-actions/publish-solution@v1
+        with:
+          environment-url: ${{ steps.load-envs.outputs.TARGET_URL }}
+          app-id: ${{ secrets.CLIENT_ID }}
+          client-secret: ${{ secrets.CLIENT_SECRET }}
+          tenant-id: ${{ secrets.TENANT_ID }}
 
       - name: Upload Solution Artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: exported-solutions
-          path: exports/
+          name: exported-solution-${{ github.event.inputs.solution_name || 'all' }}-${{ github.run_number }}
+          path: solution.zip
           retention-days: 30
 
-      - name: Deployment Status
+      - name: Deployment Summary
         if: always()
         run: |
-          if (${{ job.status }} -eq 'success') {
-            Write-Host "✓ Deployment completed successfully"
+          $status = "${{ job.status }}"
+          if ($status -eq 'success') {
+            Write-Host "`n✅ DEPLOYMENT SUCCESSFUL" -ForegroundColor Green
+            Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Green
           } else {
-            Write-Host "✗ Deployment failed"
-            exit 1
+            Write-Host "`n❌ DEPLOYMENT FAILED" -ForegroundColor Red
+            Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Red
           }
+          
+          Write-Host "Solution: ${{ github.event.inputs.solution_name || 'All' }}"
+          Write-Host "Source: ${{ github.event.inputs.source_environment || 'ecellorsdev' }}"
+          Write-Host "Target: ${{ github.event.inputs.target_environment }}"
+          Write-Host "Mode: ${{ github.event.inputs.deployment_mode || 'upgrade' }}"
+          Write-Host "Triggered by: ${{ github.actor }}"
+          Write-Host "Run: #${{ github.run_number }}"
         shell: pwsh
 
       - name: Send Deployment Notification
@@ -215,11 +178,19 @@ jobs:
           script: |
             const status = '${{ job.status }}' === 'success' ? '✅ Success' : '❌ Failed';
             const deployment = {
-              source: '${{ github.event.inputs.source_environment || 'Auto' }}',
-              target: '${{ github.event.inputs.target_environment }}',
+              status: status,
               solution: '${{ github.event.inputs.solution_name || 'All' }}',
+              source: '${{ github.event.inputs.source_environment || 'ecellorsdev' }}',
+              target: '${{ github.event.inputs.target_environment }}',
+              mode: '${{ github.event.inputs.deployment_mode || 'upgrade' }}',
               branch: '${{ github.ref_name }}',
-              actor: '${{ github.actor }}'
+              actor: '${{ github.actor }}',
+              run_number: '${{ github.run_number }}',
+              timestamp: new Date().toISOString()
             };
             
-            console.log(`Deployment ${status}\n${JSON.stringify(deployment, null, 2)}`);
+            core.notice(`${status}: Deployed from ${deployment.source} to ${deployment.target}`);
+            console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+            console.log(`Deployment ${status}`);
+            console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+            console.log(JSON.stringify(deployment, null, 2));

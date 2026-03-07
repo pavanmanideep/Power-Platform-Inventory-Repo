@@ -112,10 +112,8 @@
 
 ```json
 Development:      https://ecellorsdev.crm8.dynamics.com
-New Features:     https://ecellors-newfeatures.crm8.dynamics.com
-Testing:          https://ecellorstest.crm8.dynamics.com
-UAT:              https://ecellorsuat.crm8.dynamics.com
-Production:       https://ecellorsprod.crm8.dynamics.com
+New Features:     https://ecellorsnewfeatures.crm8.dynamics.com
+
 ```
 
 ### Required GitHub Secrets
