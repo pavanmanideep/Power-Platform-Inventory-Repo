@@ -353,13 +353,23 @@ function statCard(icon, value, label) {
   return `<div class="stat-card"><div class="stat-icon">${icon}</div><div class="stat-value">${value}</div><div class="stat-label">${esc(label)}</div></div>`;
 }
 
+// ── Date/time formatting helpers ─────────────────────────────────────────────
+function fmtReportDate(d) {
+  return `${d.slice(0,4)}-${d.slice(4,6)}-${d.slice(6,8)}`;
+}
+function fmtReportTime(t) {
+  return `${t.slice(0,2)}:${t.slice(2,4)}`;
+}
+const displayDate = fmtReportDate(reportDate);
+const displayTime = fmtReportTime(reportTime);
+
 // ── Assemble HTML ────────────────────────────────────────────────────────────
 const html = `<!DOCTYPE html>
 <html lang="en" data-theme="dark">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Power Platform Inventory Report — ${reportDate.slice(0,4)}-${reportDate.slice(4,6)}-${reportDate.slice(6,8)}</title>
+<title>Power Platform Inventory Report — ${displayDate}</title>
 <script>
   (function() {
     var saved = localStorage.getItem('pp-report-theme');
@@ -367,7 +377,6 @@ const html = `<!DOCTYPE html>
   })();
 </script>
 <style>
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,500;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;600&display=swap');
 
 :root {
   --bg-primary: #0a0e17;
@@ -436,7 +445,7 @@ const html = `<!DOCTYPE html>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html { scroll-behavior: smooth; }
 body {
-  font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
   background: var(--bg-primary);
   color: var(--text-primary);
   line-height: 1.6;
@@ -505,7 +514,7 @@ th { text-align: left; padding: 10px 12px; color: var(--text-secondary); font-we
 td { padding: 10px 12px; border-bottom: 1px solid var(--border-color); }
 tr:last-child td { border-bottom: none; }
 tr:nth-child(even) td { background: var(--table-stripe); }
-.num { text-align: right; font-variant-numeric: tabular-nums; font-family: 'JetBrains Mono', monospace; }
+.num { text-align: right; font-variant-numeric: tabular-nums; font-family: 'Courier New', 'Consolas', monospace; }
 .breakdown { color: var(--text-secondary); font-size: 0.82rem; }
 .env-name { font-weight: 500; }
 
@@ -539,11 +548,11 @@ tr:nth-child(even) td { background: var(--table-stripe); }
 .finding-info     { background: var(--info-bg);      border-color: var(--info); }
 .finding-success  { background: var(--success-bg);   border-color: var(--success); }
 .fix {
-  font-family: 'JetBrains Mono', monospace; font-size: 0.8rem;
+  font-family: 'Courier New', 'Consolas', 'Lucida Console', monospace; font-size: 0.8rem;
   background: var(--bg-input); padding: 10px 14px; border-radius: 6px;
   color: var(--text-primary); overflow-x: auto;
 }
-code { font-family: 'JetBrains Mono', monospace; font-size: 0.85em;
+code { font-family: 'Courier New', 'Consolas', 'Lucida Console', monospace; font-size: 0.85em;
        background: var(--bg-input); padding: 2px 6px; border-radius: 4px; }
 
 .rec-table th:nth-child(4), .rec-table th:nth-child(5) { min-width: 200px; }
@@ -565,7 +574,7 @@ code { font-family: 'JetBrains Mono', monospace; font-size: 0.85em;
 
 <div class="hero">
   <h1>⚡ Power Platform Inventory Report</h1>
-  <p class="meta">Generated: ${reportDate.slice(0,4)}-${reportDate.slice(4,6)}-${reportDate.slice(6,8)} ${reportTime.slice(0,2)}:${reportTime.slice(2,4)} UTC &nbsp;·&nbsp; ${totalEnvs} environments &nbsp;·&nbsp; ${totalResources} resources</p>
+  <p class="meta">Generated: ${displayDate} ${displayTime} UTC &nbsp;·&nbsp; ${totalEnvs} environments &nbsp;·&nbsp; ${totalResources} resources</p>
 </div>
 
 <div class="stats-grid">
@@ -678,7 +687,7 @@ code { font-family: 'JetBrains Mono', monospace; font-size: 0.85em;
 </div>
 
 <div class="footer">
-  Power Platform Inventory Report &nbsp;·&nbsp; ${reportDate.slice(0,4)}-${reportDate.slice(4,6)}-${reportDate.slice(6,8)} ${reportTime.slice(0,2)}:${reportTime.slice(2,4)} UTC
+  Power Platform Inventory Report &nbsp;·&nbsp; ${displayDate} ${displayTime} UTC
 </div>
 
 <script>
