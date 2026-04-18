@@ -1,0 +1,166 @@
+name: Daily Power Platform Inventory Report
+
+on:
+  schedule:
+    - cron: '0 6 * * *'   # Every day at 06:00 UTC
+  workflow_dispatch:        # Allow manual trigger from GitHub Actions UI
+
+permissions:
+  contents: write           # Required to commit and push the generated report
+
+jobs:
+  generate-report:
+    name: Generate Inventory Report
+    runs-on: ubuntu-latest
+
+    env:
+      REPORT_DATE: ''
+      REPORT_TIME: ''
+      REPORT_DIR: ''
+
+    steps:
+      # ── 1. Checkout ──────────────────────────────────────────────────────────
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      # ── 2. Set timestamp variables ───────────────────────────────────────────
+      - name: Set report timestamp
+        run: |
+          echo "REPORT_DATE=$(date -u '+%Y%m%d')" >> $GITHUB_ENV
+          echo "REPORT_TIME=$(date -u '+%H%M')"   >> $GITHUB_ENV
+          echo "REPORT_DIR=reports/$(date -u '+%Y%m%d')/$(date -u '+%H%M')" >> $GITHUB_ENV
+
+      # ── 3. Azure CLI login (service principal) ───────────────────────────────
+      - name: Azure login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+          # Secret format (store as AZURE_CREDENTIALS in repo secrets):
+          # {
+          #   "clientId":       "<app-id>",
+          #   "clientSecret":   "<client-secret>",
+          #   "subscriptionId": "<subscription-id>",
+          #   "tenantId":       "<tenant-id>"
+          # }
+
+      # ── 4. Install Power Platform CLI ────────────────────────────────────────
+      - name: Install pac CLI
+        run: |
+          curl -sSL https://aka.ms/PowerAppsCLI/linux -o pac.tar.gz
+          mkdir -p $HOME/.pac
+          tar -xzf pac.tar.gz -C $HOME/.pac
+          echo "$HOME/.pac" >> $GITHUB_PATH
+
+      # ── 5. Authenticate pac to Power Platform ─────────────────────────────────
+      - name: Authenticate pac CLI
+        run: |
+          pac auth create \
+            --applicationId "${{ secrets.PP_CLIENT_ID }}" \
+            --clientSecret  "${{ secrets.PP_CLIENT_SECRET }}" \
+            --tenant        "${{ secrets.PP_TENANT_ID }}" \
+            --name          "ci-auth"
+          pac auth select --name "ci-auth"
+
+      # ── 6. Collect tenant governance data ────────────────────────────────────
+      - name: Collect tenant settings
+        run: |
+          mkdir -p /tmp/pp-data
+          pac admin list-tenant-settings \
+            --output json > /tmp/pp-data/tenant-settings.json
+
+      - name: List DLP policies
+        run: |
+          pac admin dlp-policy list \
+            --output json > /tmp/pp-data/dlp-policies.json
+
+      - name: Collect DLP policy details
+        run: |
+          # Iterate over each policy GUID and fetch its full details
+          POLICY_IDS=$(jq -r '.[].policyName // .[].name // empty' /tmp/pp-data/dlp-policies.json 2>/dev/null || echo "")
+          mkdir -p /tmp/pp-data/dlp-details
+          for ID in $POLICY_IDS; do
+            pac admin dlp-policy show --policy-name "$ID" --output json \
+              > /tmp/pp-data/dlp-details/${ID}.json || true
+          done
+
+      - name: List environments
+        run: |
+          pac admin list --output json > /tmp/pp-data/environments.json
+
+      - name: Collect environment settings
+        run: |
+          mkdir -p /tmp/pp-data/env-settings
+          ENV_IDS=$(jq -r '.[].environmentId // .[].EnvironmentId // empty' \
+            /tmp/pp-data/environments.json 2>/dev/null || echo "")
+          for ENV_ID in $ENV_IDS; do
+            pac env list-settings --environment "$ENV_ID" --output json \
+              > /tmp/pp-data/env-settings/${ENV_ID}.json || true
+          done
+
+      # ── 7. Query Power Platform inventory via Azure Resource Graph ────────────
+      - name: Query Power Platform inventory
+        run: |
+          PP_API=$(az rest \
+            --method GET \
+            --url "https://management.azure.com/providers/Microsoft.PowerPlatform?api-version=2020-10-01" \
+            --query "namespace" -o tsv 2>/dev/null || echo "https://api.powerplatform.com")
+
+          az rest \
+            --method POST \
+            --url "https://api.powerplatform.com/resourcequery/resources/query?api-version=2024-10-01" \
+            --headers "Content-Type=application/json" \
+            --body '{
+              "TableName": "PowerPlatformResources",
+              "Clauses": [
+                {
+                  "$type": "where",
+                  "FieldName": "type",
+                  "Operator": "in~",
+                  "Values": [
+                    "'\''microsoft.powerapps/canvasapps'\''",
+                    "'\''microsoft.flow/flows'\''",
+                    "'\''microsoft.copilotstudio/agents'\''",
+                    "'\''microsoft.powerplatform/environments'\''",
+                    "'\''microsoft.powerapps/modeldrivenapps'\''"
+                  ]
+                }
+              ],
+              "Options": { "Top": 1000, "Skip": 0 }
+            }' \
+            > /tmp/pp-data/inventory.json || echo '{"value":[]}' > /tmp/pp-data/inventory.json
+
+      # ── 8. Install Node.js for report generation ──────────────────────────────
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # ── 9. Generate the HTML report ───────────────────────────────────────────
+      - name: Generate HTML report
+        run: |
+          mkdir -p "${{ env.REPORT_DIR }}"
+          node scripts/generate-report.mjs \
+            --data-dir /tmp/pp-data \
+            --output    "${{ env.REPORT_DIR }}/inventory-report.html" \
+            --date      "${{ env.REPORT_DATE }}" \
+            --time      "${{ env.REPORT_TIME }}"
+
+      # ── 10. Commit and push the report ────────────────────────────────────────
+      - name: Commit and push report
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add "${{ env.REPORT_DIR }}"
+          git diff --cached --quiet && echo "No changes to commit" && exit 0
+          git commit -m "chore: daily inventory report ${{ env.REPORT_DATE }}-${{ env.REPORT_TIME }}"
+          git push
+
+      # ── 11. Upload report as Actions artifact (30-day retention) ─────────────
+      - name: Upload report artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: inventory-report-${{ env.REPORT_DATE }}-${{ env.REPORT_TIME }}
+          path: ${{ env.REPORT_DIR }}/inventory-report.html
+          retention-days: 30
