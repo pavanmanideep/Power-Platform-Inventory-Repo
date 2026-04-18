@@ -36,14 +36,10 @@ jobs:
       - name: Azure login
         uses: azure/login@v2
         with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
-          # Secret format (store as AZURE_CREDENTIALS in repo secrets):
-          # {
-          #   "clientId":       "<app-id>",
-          #   "clientSecret":   "<client-secret>",
-          #   "subscriptionId": "<subscription-id>",
-          #   "tenantId":       "<tenant-id>"
-          # }
+          client-id:       ${{ secrets.PP_CLIENT_ID }}
+          client-secret:   ${{ secrets.PP_CLIENT_SECRET }}
+          tenant-id:       ${{ secrets.PP_TENANT_ID }}
+          allow-no-subscriptions: true
 
       # ── 4. Install Power Platform CLI ────────────────────────────────────────
       - name: Install pac CLI
