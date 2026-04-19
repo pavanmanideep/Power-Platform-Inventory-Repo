@@ -90,16 +90,61 @@ const ts = (key) => {
   return k ? tsFlat[k] : undefined;
 };
 
-const normEnv = (e) => ({
-  id:        e.EnvironmentId  || e.environmentId  || e.id        || '',
-  name:      e.DisplayName    || e.displayName    || e.name      || 'Unknown',
-  type:      e.EnvironmentType|| e.environmentType|| e.type      || 'Unknown',
-  region:    e.Region         || e.region         || '—',
-  groupId:   e.GroupId        || e.groupId        || '',
-  groupName: e.GroupName      || e.groupName      || '',
-  isManaged: !!(e.IsManaged   || e.isManaged),
-  state:     e.State          || e.state          || 'Ready',
-});
+// Derive the human-readable region from the Dataverse instance URL.
+// pac admin list doesn't expose a region field directly — the CRM subdomain
+// suffix is the authoritative source: crm.dynamics.com → United States,
+// crm2 → South America, crm3 → Canada, crm4 → Europe, crm5 → Asia Pacific,
+// crm6 → Australia, crm7 → Japan, crm8 → India, crm9 → United States 2,
+// crm11 → UK, crm12 → France, crm15 → UAE, crm16 → South Africa,
+// crm17 → Germany, crm19 → Switzerland, crm20 → Norway.
+const CRM_REGION_MAP = {
+  'crm.dynamics.com':   'United States',
+  'crm2.dynamics.com':  'South America',
+  'crm3.dynamics.com':  'Canada',
+  'crm4.dynamics.com':  'Europe',
+  'crm5.dynamics.com':  'Asia Pacific',
+  'crm6.dynamics.com':  'Australia',
+  'crm7.dynamics.com':  'Japan',
+  'crm8.dynamics.com':  'India',
+  'crm9.dynamics.com':  'United States 2',
+  'crm11.dynamics.com': 'United Kingdom',
+  'crm12.dynamics.com': 'France',
+  'crm14.dynamics.com': 'South America 2',
+  'crm15.dynamics.com': 'UAE',
+  'crm16.dynamics.com': 'South Africa',
+  'crm17.dynamics.com': 'Germany',
+  'crm19.dynamics.com': 'Switzerland',
+  'crm20.dynamics.com': 'Norway',
+};
+
+function regionFromUrl(url) {
+  if (!url) return '—';
+  try {
+    const host = new URL(url).hostname.toLowerCase();
+    // Match hostnames like org1234.crm8.dynamics.com
+    const m = host.match(/\.(crm\d*\.dynamics\.com)$/);
+    if (m) return CRM_REGION_MAP[m[1]] || m[1];
+  } catch { /* ignore */ }
+  return '—';
+}
+
+const normEnv = (e) => {
+  const url = e.EnvironmentUrl || e.environmentUrl || e.Url || e.url || '';
+  // Prefer explicit region field if present, fall back to URL-derived region
+  const rawRegion = e.Region || e.region || '';
+  const region = rawRegion && rawRegion !== '—' ? rawRegion : regionFromUrl(url);
+  return {
+    id:        e.EnvironmentId  || e.environmentId  || e.id        || '',
+    name:      e.DisplayName    || e.displayName    || e.name      || 'Unknown',
+    type:      e.EnvironmentType|| e.environmentType|| e.type      || 'Unknown',
+    url,
+    region,
+    groupId:   e.GroupId        || e.groupId        || '',
+    groupName: e.GroupName      || e.groupName      || '',
+    isManaged: !!(e.IsManaged   || e.isManaged),
+    state:     e.State          || e.state          || 'Ready',
+  };
+};
 const envList = environments.map(normEnv);
 
 // Tenant identity (env var injected by workflow)
