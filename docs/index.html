@@ -1,0 +1,787 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Power Platform Inventory Report — Ecellors</title>
+<script>
+  (function() {
+    var saved = localStorage.getItem('pp-report-theme');
+    if (saved) document.documentElement.dataset.theme = saved;
+  })();
+</script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,500;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;600&display=swap');
+
+:root {
+  --bg-primary: #0a0e17;
+  --bg-secondary: #111827;
+  --bg-card: #1a2233;
+  --bg-card-hover: #1f2a3d;
+  --bg-input: #0d1321;
+  --border-color: #1e2d44;
+  --border-accent: #2563eb;
+  --text-primary: #e8ecf4;
+  --text-secondary: #8b97b0;
+  --text-muted: #5b6782;
+  --accent: #3b82f6;
+  --accent-glow: rgba(59, 130, 246, 0.15);
+  --success: #22c55e;
+  --success-bg: rgba(34, 197, 94, 0.1);
+  --warning: #f59e0b;
+  --warning-bg: rgba(245, 158, 11, 0.1);
+  --critical: #ef4444;
+  --critical-bg: rgba(239, 68, 68, 0.1);
+  --info: #06b6d4;
+  --info-bg: rgba(6, 182, 212, 0.1);
+  --hero-gradient: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #0f172a 100%);
+  --card-shadow: 0 4px 24px rgba(0,0,0,0.3);
+  --table-stripe: rgba(255,255,255,0.02);
+  --toggle-bg: #1e2d44;
+  --toggle-fg: #e8ecf4;
+  --bar-bg: #1e2d44;
+  --bar-fill: #3b82f6;
+  --pill-bg: rgba(59,130,246,0.15);
+  --pill-text: #60a5fa;
+}
+
+[data-theme="light"] {
+  --bg-primary: #f8fafc;
+  --bg-secondary: #ffffff;
+  --bg-card: #ffffff;
+  --bg-card-hover: #f1f5f9;
+  --bg-input: #f1f5f9;
+  --border-color: #e2e8f0;
+  --border-accent: #2563eb;
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #94a3b8;
+  --accent: #2563eb;
+  --accent-glow: rgba(37, 99, 235, 0.08);
+  --success: #16a34a;
+  --success-bg: rgba(22, 163, 74, 0.08);
+  --warning: #d97706;
+  --warning-bg: rgba(217, 119, 6, 0.08);
+  --critical: #dc2626;
+  --critical-bg: rgba(220, 38, 38, 0.06);
+  --info: #0891b2;
+  --info-bg: rgba(8, 145, 178, 0.06);
+  --hero-gradient: linear-gradient(135deg, #eff6ff 0%, #e0e7ff 50%, #f0f9ff 100%);
+  --card-shadow: 0 1px 12px rgba(0,0,0,0.06);
+  --table-stripe: rgba(0,0,0,0.02);
+  --toggle-bg: #e2e8f0;
+  --toggle-fg: #0f172a;
+  --bar-bg: #e2e8f0;
+  --bar-fill: #2563eb;
+  --pill-bg: rgba(37,99,235,0.08);
+  --pill-text: #2563eb;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  line-height: 1.6;
+  min-height: 100vh;
+}
+
+.theme-toggle {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 1000;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 1px solid var(--border-color);
+  background: var(--toggle-bg);
+  color: var(--toggle-fg);
+  font-size: 20px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+.theme-toggle:hover { transform: scale(1.1); border-color: var(--accent); box-shadow: 0 4px 20px var(--accent-glow); }
+
+.hero {
+  background: var(--hero-gradient);
+  padding: 60px 40px 50px;
+  border-bottom: 1px solid var(--border-color);
+  position: relative;
+  overflow: hidden;
+}
+.hero::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  right: -20%;
+  width: 600px;
+  height: 600px;
+  background: radial-gradient(circle, var(--accent-glow) 0%, transparent 70%);
+  pointer-events: none;
+}
+.hero h1 { font-size: 2.2rem; font-weight: 700; letter-spacing: -0.5px; margin-bottom: 8px; position: relative; }
+.hero .subtitle { color: var(--text-secondary); font-size: 0.95rem; margin-bottom: 32px; position: relative; }
+.hero .tenant-name { color: var(--accent); font-weight: 600; }
+.stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; position: relative; }
+.stat-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 20px;
+  text-align: center;
+  transition: all 0.25s ease;
+}
+.stat-card:hover { border-color: var(--accent); box-shadow: 0 0 20px var(--accent-glow); transform: translateY(-2px); }
+.stat-card .stat-value { font-size: 2rem; font-weight: 700; font-family: 'JetBrains Mono', monospace; color: var(--text-primary); }
+.stat-card .stat-label { font-size: 0.8rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 1px; margin-top: 4px; }
+
+.health-bar { display: flex; gap: 16px; margin: 24px 0; flex-wrap: wrap; }
+.health-item { display: flex; align-items: center; gap: 8px; padding: 10px 18px; border-radius: 10px; font-weight: 600; font-size: 0.95rem; }
+.health-critical { background: var(--critical-bg); color: var(--critical); border: 1px solid var(--critical); }
+.health-warning { background: var(--warning-bg); color: var(--warning); border: 1px solid var(--warning); }
+.health-success { background: var(--success-bg); color: var(--success); border: 1px solid var(--success); }
+
+.container { max-width: 1400px; margin: 0 auto; padding: 32px 40px; }
+.section { margin-bottom: 48px; }
+.section-header { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; padding-bottom: 12px; border-bottom: 1px solid var(--border-color); }
+.section-header h2 { font-size: 1.35rem; font-weight: 700; letter-spacing: -0.3px; }
+.section-header .icon { font-size: 1.4rem; }
+
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 24px;
+  margin-bottom: 16px;
+  transition: all 0.2s ease;
+}
+.card:hover { background: var(--bg-card-hover); box-shadow: var(--card-shadow); }
+
+table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+thead th {
+  text-align: left;
+  padding: 12px 16px;
+  color: var(--text-secondary);
+  font-weight: 600;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 2px solid var(--border-color);
+  white-space: nowrap;
+}
+tbody td { padding: 12px 16px; border-bottom: 1px solid var(--border-color); vertical-align: middle; }
+tbody tr:nth-child(even) { background: var(--table-stripe); }
+tbody tr:hover { background: var(--bg-card-hover); }
+.num { font-family: 'JetBrains Mono', monospace; text-align: right; font-weight: 600; }
+.text-muted { color: var(--text-muted); font-style: italic; }
+
+.badge { display: inline-block; padding: 4px 10px; border-radius: 6px; font-size: 0.75rem; font-weight: 600; white-space: nowrap; }
+.badge-success { background: var(--success-bg); color: var(--success); border: 1px solid var(--success); }
+.badge-warning { background: var(--warning-bg); color: var(--warning); border: 1px solid var(--warning); }
+.badge-critical { background: var(--critical-bg); color: var(--critical); border: 1px solid var(--critical); }
+.badge-info { background: var(--info-bg); color: var(--info); border: 1px solid var(--info); }
+
+.env-type { display: inline-block; padding: 3px 10px; border-radius: 6px; font-size: 0.75rem; font-weight: 600; }
+.env-type-default { background: var(--warning-bg); color: var(--warning); border: 1px solid var(--warning); }
+.env-type-trial { background: var(--info-bg); color: var(--info); border: 1px solid var(--info); }
+.env-type-developer { background: var(--success-bg); color: var(--success); border: 1px solid var(--success); }
+
+.resource-type-pill { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 500; background: var(--pill-bg); color: var(--pill-text); }
+.env-name { font-weight: 600; }
+.breakdown { font-size: 0.82rem; color: var(--text-secondary); }
+
+.bar-container { background: var(--bar-bg); border-radius: 4px; height: 8px; width: 100%; min-width: 100px; }
+.bar { background: var(--bar-fill); border-radius: 4px; height: 100%; transition: width 0.6s ease; }
+
+.finding { padding: 20px 24px; border-radius: 10px; margin-bottom: 12px; border-left: 4px solid; }
+.finding-critical { background: var(--critical-bg); border-color: var(--critical); }
+.finding-warning { background: var(--warning-bg); border-color: var(--warning); }
+.finding-info { background: var(--info-bg); border-color: var(--info); }
+.finding h3 { font-size: 1rem; margin-bottom: 6px; }
+.finding p { font-size: 0.88rem; color: var(--text-secondary); margin-bottom: 8px; line-height: 1.6; }
+.finding .fix { font-size: 0.85rem; padding: 8px 12px; background: var(--bg-input); border-radius: 6px; font-family: 'JetBrains Mono', monospace; color: var(--text-primary); margin-top: 8px; word-break: break-all; }
+
+.nav-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 0;
+  overflow-x: auto;
+}
+.nav-tab {
+  padding: 10px 18px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+}
+.nav-tab:hover { color: var(--text-primary); }
+.nav-tab.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 700; }
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+
+.settings-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; }
+.setting-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 8px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+}
+.setting-icon { font-size: 1.2rem; flex-shrink: 0; margin-top: 2px; }
+.setting-label { font-size: 0.82rem; font-weight: 600; color: var(--text-primary); }
+.setting-value { font-size: 0.78rem; color: var(--text-secondary); margin-top: 2px; font-family: 'JetBrains Mono', monospace; }
+
+.footer { text-align: center; padding: 32px; color: var(--text-muted); font-size: 0.8rem; border-top: 1px solid var(--border-color); }
+
+@media (max-width: 768px) {
+  .hero { padding: 40px 20px 30px; }
+  .container { padding: 20px; }
+  .stat-grid { grid-template-columns: repeat(2, 1fr); }
+}
+</style>
+</head>
+<body>
+
+<button class="theme-toggle" id="themeToggle" title="Toggle dark/light mode" aria-label="Toggle theme">🌙</button>
+
+<!-- Hero -->
+<div class="hero">
+  <h1>⚡ Power Platform Inventory Report</h1>
+  <p class="subtitle">
+    Tenant: <span class="tenant-name">Ecellors.onmicrosoft.com</span> &nbsp;·&nbsp;
+    Tenant ID: <span class="tenant-name">97ae7e35-2f87-418b-9432-6733950f3d5c</span> &nbsp;·&nbsp;
+    Generated: <span class="tenant-name">2026-04-19 09:55 UTC</span>
+  </p>
+
+  <div class="stat-grid">
+    <div class="stat-card">
+      <div class="stat-value">6</div>
+      <div class="stat-label">Environments</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value">68</div>
+      <div class="stat-label">Solutions (accessible)</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value">1</div>
+      <div class="stat-label">DLP Policies</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value">0</div>
+      <div class="stat-label">Managed Environments</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value">0</div>
+      <div class="stat-label">Connectors Blocked</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value">1</div>
+      <div class="stat-label">Env Groups</div>
+    </div>
+  </div>
+
+  <div class="health-bar">
+    <div class="health-item health-critical">🔴 4 Critical</div>
+    <div class="health-item health-warning">🟡 5 Warnings</div>
+    <div class="health-item health-success">🟢 3 Healthy</div>
+  </div>
+</div>
+
+<div class="container">
+
+  <div class="nav-tabs">
+    <button class="nav-tab active" onclick="showTab('overview')">Overview</button>
+    <button class="nav-tab" onclick="showTab('environments')">Environments</button>
+    <button class="nav-tab" onclick="showTab('governance')">Tenant Governance</button>
+    <button class="nav-tab" onclick="showTab('dlp')">DLP Policies</button>
+    <button class="nav-tab" onclick="showTab('env-settings')">Environment Settings</button>
+    <button class="nav-tab" onclick="showTab('solutions')">Solutions Installed</button>
+    <button class="nav-tab" onclick="showTab('recommendations')">Recommendations</button>
+  </div>
+
+  <!-- Overview Tab -->
+  <div id="tab-overview" class="tab-content active">
+    <div class="section">
+      <div class="section-header"><span class="icon">🔴</span><h2>Critical Findings</h2></div>
+      <div class="finding finding-critical">
+        <h3>No connectors blocked in DLP policy</h3>
+        <p>The sole DLP policy "Policy" has 1,534 connectors classified as <strong>General</strong> and zero connectors in either the <strong>Confidential</strong> or <strong>Blocked</strong> buckets. This means any user can build flows connecting business data (SharePoint, Dataverse) to consumer services (social media, personal storage) with no platform-level barrier.</p>
+        <div class="fix">pac admin dlp-policy update --policy-name "fabd6dbe-63d5-4f16-a4dc-60c0a732735c" — review connector classification</div>
+      </div>
+      <div class="finding finding-critical">
+        <h3>Any user can create environments (Developer &amp; standard)</h3>
+        <p><code>disableEnvironmentCreationByNonAdminUsers</code> and <code>disableDeveloperEnvironmentCreationByNonAdminUsers</code> are both <strong>false</strong>. Every licensed user in the tenant can provision new environments, bypassing governance controls and potentially hosting shadow IT solutions outside DLP scope.</p>
+        <div class="fix">Power Platform Admin Center → Settings → Environment creation → restrict to Admins only</div>
+      </div>
+      <div class="finding finding-critical">
+        <h3>No managed environments — zero Managed Layer controls</h3>
+        <p>None of the 6 environments are enrolled in Managed Environments. This disables weekly digest emails, solution checker enforcement, IP firewall, sharing limits, and pipeline guardrails — the full governance layer Microsoft provides at no additional cost for most plans.</p>
+        <div class="fix">pac admin set-governance-config --environment &lt;id&gt; --protection-level Standard</div>
+      </div>
+      <div class="finding finding-critical">
+        <h3>3 of 6 environments inaccessible to admin account</h3>
+        <p>Environments <em>Pavan Mani Deep Yaragani</em>, <em>Leo Fernandas</em>, and <em>ContactCenter Trial</em> returned 403/privilege errors when queried via the admin account. This means governance data (solutions, apps, flows) is blind to IT admins — a significant compliance gap.</p>
+        <div class="fix">Assign System Administrator role to admin@Ecellors.onmicrosoft.com in all three environments via PPAC</div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-header"><span class="icon">📊</span><h2>Tenant Snapshot</h2></div>
+      <div class="card">
+        <table>
+          <thead><tr><th>Metric</th><th>Value</th><th>Status</th></tr></thead>
+          <tbody>
+            <tr><td>Total environments</td><td class="num">6</td><td><span class="badge badge-info">Normal</span></td></tr>
+            <tr><td>Trial environments</td><td class="num">1</td><td><span class="badge badge-warning">Monitor expiry</span></td></tr>
+            <tr><td>Developer environments</td><td class="num">4</td><td><span class="badge badge-warning">No governance</span></td></tr>
+            <tr><td>Default environments</td><td class="num">1</td><td><span class="badge badge-critical">High risk</span></td></tr>
+            <tr><td>DLP policies in force</td><td class="num">1</td><td><span class="badge badge-warning">Weak config</span></td></tr>
+            <tr><td>Environments with admin access</td><td class="num">3 / 6</td><td><span class="badge badge-critical">Access gaps</span></td></tr>
+            <tr><td>CoE Starter Kit deployed</td><td class="num">Yes</td><td><span class="badge badge-success">Good</span></td></tr>
+            <tr><td>Environment groups configured</td><td class="num">1</td><td><span class="badge badge-success">Good</span></td></tr>
+            <tr><td>Open AI bot publishing enabled</td><td class="num">true</td><td><span class="badge badge-warning">Review</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Environments Tab -->
+  <div id="tab-environments" class="tab-content">
+    <div class="section">
+      <div class="section-header"><span class="icon">🌐</span><h2>Environment Inventory (6 environments)</h2></div>
+      <p style="color:var(--text-secondary);margin-bottom:16px;">0 managed · 1 environment group (Ecellors) · 3 environments with limited admin access</p>
+      <div class="card" style="overflow-x:auto;">
+        <table>
+          <thead><tr><th>Environment</th><th>Type</th><th>Region</th><th>Group</th><th>Admin Access</th><th>Solutions</th></tr></thead>
+          <tbody>
+            <tr>
+              <td class="env-name">Ecellors (Default)</td>
+              <td><span class="env-type env-type-default">Default</span></td>
+              <td>unitedstates</td>
+              <td><span class="text-muted">—</span></td>
+              <td><span class="badge badge-success">Full</span></td>
+              <td class="num">23</td>
+            </tr>
+            <tr>
+              <td class="env-name">Ecellors Dev</td>
+              <td><span class="env-type env-type-developer">Developer</span></td>
+              <td>unitedstates</td>
+              <td><span class="resource-type-pill">Ecellors</span></td>
+              <td><span class="badge badge-success">Full</span></td>
+              <td class="num">45</td>
+            </tr>
+            <tr>
+              <td class="env-name">New Features Environment</td>
+              <td><span class="env-type env-type-developer">Developer</span></td>
+              <td>unitedstates</td>
+              <td><span class="resource-type-pill">Ecellors</span></td>
+              <td><span class="badge badge-critical">Partial (403)</span></td>
+              <td class="num text-muted">N/A</td>
+            </tr>
+            <tr>
+              <td class="env-name">Pavan Mani Deep Yaragani</td>
+              <td><span class="env-type env-type-developer">Developer</span></td>
+              <td>unitedstates</td>
+              <td><span class="text-muted">—</span></td>
+              <td><span class="badge badge-critical">Denied (403)</span></td>
+              <td class="num text-muted">N/A</td>
+            </tr>
+            <tr>
+              <td class="env-name">Leo Fernandas</td>
+              <td><span class="env-type env-type-developer">Developer</span></td>
+              <td>unitedstates</td>
+              <td><span class="text-muted">—</span></td>
+              <td><span class="badge badge-critical">No Role Assigned</span></td>
+              <td class="num text-muted">N/A</td>
+            </tr>
+            <tr>
+              <td class="env-name">ContactCenter Trial</td>
+              <td><span class="env-type env-type-trial">Trial</span></td>
+              <td>unitedstates</td>
+              <td><span class="text-muted">—</span></td>
+              <td><span class="badge badge-critical">No Role Assigned</span></td>
+              <td class="num text-muted">N/A</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Governance Tab -->
+  <div id="tab-governance" class="tab-content">
+    <div class="section">
+      <div class="section-header"><span class="icon">🏛️</span><h2>Tenant Governance Settings</h2></div>
+      <p style="color:var(--text-secondary);margin-bottom:20px;">Collected via <code>pac admin list-tenant-settings</code> on 2026-04-19</p>
+
+      <div class="settings-grid">
+        <div class="setting-item">
+          <div class="setting-icon">🔴</div>
+          <div>
+            <div class="setting-label">Environment Creation by Non-Admins</div>
+            <div class="setting-value">disableEnvironmentCreationByNonAdminUsers: <strong>false</strong></div>
+            <div class="setting-value" style="color:var(--critical);margin-top:4px;">Any licensed user can create environments</div>
+          </div>
+        </div>
+        <div class="setting-item">
+          <div class="setting-icon">🔴</div>
+          <div>
+            <div class="setting-label">Developer Env Creation by Non-Admins</div>
+            <div class="setting-value">disableDeveloperEnvironmentCreationByNonAdminUsers: <strong>false</strong></div>
+            <div class="setting-value" style="color:var(--critical);margin-top:4px;">Any user can spin up developer envs</div>
+          </div>
+        </div>
+        <div class="setting-item">
+          <div class="setting-icon">🟢</div>
+          <div>
+            <div class="setting-label">Share With Everyone Disabled</div>
+            <div class="setting-value">disableShareWithEveryone: <strong>true</strong></div>
+            <div class="setting-value" style="color:var(--success);margin-top:4px;">Good — prevents broad app sharing</div>
+          </div>
+        </div>
+        <div class="setting-item">
+          <div class="setting-icon">🟡</div>
+          <div>
+            <div class="setting-label">Open AI Bot Publishing</div>
+            <div class="setting-value">enableOpenAiBotPublishing: <strong>true</strong></div>
+            <div class="setting-value" style="color:var(--warning);margin-top:4px;">Copilot Studio bots can be published externally</div>
+          </div>
+        </div>
+        <div class="setting-item">
+          <div class="setting-icon">🟢</div>
+          <div>
+            <div class="setting-label">Copilot Feedback Disabled</div>
+            <div class="setting-value">disableCopilotFeedback: <strong>true</strong></div>
+            <div class="setting-value" style="color:var(--success);margin-top:4px;">Data not sent to Microsoft for model training</div>
+          </div>
+        </div>
+        <div class="setting-item">
+          <div class="setting-icon">🟢</div>
+          <div>
+            <div class="setting-label">Default Environment Routing</div>
+            <div class="setting-value">enableDefaultEnvironmentRouting: <strong>true</strong></div>
+            <div class="setting-value" style="color:var(--success);margin-top:4px;">New makers routed to personal dev envs</div>
+          </div>
+        </div>
+        <div class="setting-item">
+          <div class="setting-icon">🟡</div>
+          <div>
+            <div class="setting-label">Docs Search Disabled</div>
+            <div class="setting-value">disableDocsSearch: <strong>true</strong></div>
+            <div class="setting-value" style="color:var(--warning);margin-top:4px;">Makers cannot search Microsoft docs from studio</div>
+          </div>
+        </div>
+        <div class="setting-item">
+          <div class="setting-icon">🟡</div>
+          <div>
+            <div class="setting-label">Flow Run Resubmission Disabled</div>
+            <div class="setting-value">disableFlowRunResubmission: <strong>true</strong></div>
+            <div class="setting-value" style="color:var(--warning);margin-top:4px;">Users cannot retry failed flow runs — may impact self-service</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DLP Tab -->
+  <div id="tab-dlp" class="tab-content">
+    <div class="section">
+      <div class="section-header"><span class="icon">🔒</span><h2>DLP Policies</h2></div>
+
+      <div class="card">
+        <table>
+          <thead><tr><th>Policy Name</th><th>GUID</th><th>Scope</th><th>Default Classification</th><th>Blocked</th><th>Confidential</th><th>General</th><th>Status</th></tr></thead>
+          <tbody>
+            <tr>
+              <td class="env-name">Policy</td>
+              <td style="font-family:monospace;font-size:0.78rem;">fabd6dbe-63d5-4f16-a4dc-60c0a732735c</td>
+              <td>ExceptEnvironments</td>
+              <td>General</td>
+              <td class="num" style="color:var(--critical);">0</td>
+              <td class="num">0</td>
+              <td class="num">1,534</td>
+              <td><span class="badge badge-critical">Critical Risk</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="finding finding-critical">
+        <h3>Zero connectors blocked — DLP policy is effectively decorative</h3>
+        <p>With 1,534 connectors all sitting in <strong>General</strong>, there is no separation between business-sensitive connectors (SharePoint, Teams, Dataverse, Exchange) and consumer/personal connectors (Twitter/X, Dropbox, Gmail, personal OneDrive). A maker can create a flow that reads from SharePoint and posts to any social platform — with no DLP barrier.</p>
+        <div class="fix">Remediation: Move high-risk consumer connectors to Blocked. Move sensitive business connectors to Business/Confidential. Separate them from General to enforce the data boundary.</div>
+      </div>
+
+      <div class="finding finding-warning">
+        <h3>Default classification is General — new connectors auto-permissive</h3>
+        <p>When Microsoft releases new connectors, they are automatically assigned the <strong>General</strong> bucket (the permissive default). This means new AI, data, or 3rd-party connectors enter the tenant fully usable without any admin review.</p>
+        <div class="fix">Set defaultConnectorsClassification to Blocked in the policy so new connectors require explicit admin approval before use.</div>
+      </div>
+
+      <div class="finding finding-warning">
+        <h3>Policy scope is ExceptEnvironments — verify excluded envs are not high-risk</h3>
+        <p>The <em>ExceptEnvironments</em> scope means certain environments are explicitly excluded from this policy. If those excluded environments are production or contain business data, they may operate without any DLP controls.</p>
+        <div class="fix">pac admin dlp-policy show --policy-name "fabd6dbe-63d5-4f16-a4dc-60c0a732735c" — review the excluded environment list</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Environment Settings Tab -->
+  <div id="tab-env-settings" class="tab-content">
+    <div class="section">
+      <div class="section-header"><span class="icon">⚙️</span><h2>Environment Settings — Ecellors (Default)</h2></div>
+      <p style="color:var(--text-secondary);margin-bottom:20px;">Collected via <code>pac env list-settings</code>. High-risk settings highlighted.</p>
+
+      <div class="settings-grid">
+        <div class="setting-item">
+          <div class="setting-icon">🔴</div>
+          <div>
+            <div class="setting-label">IP-based Firewall</div>
+            <div class="setting-value">enableipbasedfirewallrule: <strong>No</strong></div>
+            <div class="setting-value" style="color:var(--critical);margin-top:4px;">No IP restrictions — accessible from any network</div>
+          </div>
+        </div>
+        <div class="setting-item">
+          <div class="setting-icon">🔴</div>
+          <div>
+            <div class="setting-label">Sensitivity Labels</div>
+            <div class="setting-value">enablesensitivitylabels: <strong>No</strong></div>
+            <div class="setting-value" style="color:var(--critical);margin-top:4px;">Data classification labels not enforced</div>
+          </div>
+        </div>
+        <div class="setting-item">
+          <div class="setting-icon">🟡</div>
+          <div>
+            <div class="setting-label">Inactivity Timeout</div>
+            <div class="setting-value">inactivitytimeoutenabled: <strong>No</strong></div>
+            <div class="setting-value" style="color:var(--warning);margin-top:4px;">Sessions never time out automatically</div>
+          </div>
+        </div>
+        <div class="setting-item">
+          <div class="setting-icon">🟡</div>
+          <div>
+            <div class="setting-label">Audit Log Retention</div>
+            <div class="setting-value">auditretentionperiod: <strong>30 days</strong></div>
+            <div class="setting-value" style="color:var(--warning);margin-top:4px;">Low — consider 90+ days for compliance</div>
+          </div>
+        </div>
+        <div class="setting-item">
+          <div class="setting-icon">🟡</div>
+          <div>
+            <div class="setting-label">Shared Components Capacity</div>
+            <div class="setting-value">sharedcomponentscapacitystrategy: <strong>No</strong></div>
+            <div class="setting-value" style="color:var(--warning);margin-top:4px;">Shared capacity strategy not configured</div>
+          </div>
+        </div>
+        <div class="setting-item">
+          <div class="setting-icon">🟡</div>
+          <div>
+            <div class="setting-label">Plug-in Trace Log Setting</div>
+            <div class="setting-value">plugintracelogsetting: <strong>Off</strong></div>
+            <div class="setting-value" style="color:var(--warning);margin-top:4px;">Debugging logs disabled — impacts issue diagnosis</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Solutions Tab -->
+  <div id="tab-solutions" class="tab-content">
+    <div class="section">
+      <div class="section-header"><span class="icon">📦</span><h2>Solutions Installed — Ecellors (Default, 23 solutions)</h2></div>
+      <div class="card" style="overflow-x:auto;">
+        <table>
+          <thead><tr><th>Solution</th><th>Publisher</th><th>Version</th><th>Type</th></tr></thead>
+          <tbody>
+            <tr><td>CoE Core Components</td><td>Microsoft CoE</td><td>4.24</td><td><span class="resource-type-pill">Managed</span></td></tr>
+            <tr><td>CoE Governance Components</td><td>Microsoft CoE</td><td>3.16</td><td><span class="resource-type-pill">Managed</span></td></tr>
+            <tr><td>Creator Kit</td><td>Microsoft</td><td>—</td><td><span class="resource-type-pill">Managed</span></td></tr>
+            <tr><td>Document Automation Base Kit</td><td>Microsoft</td><td>—</td><td><span class="resource-type-pill">Managed</span></td></tr>
+            <tr><td>Power Platform Admin Center Solution</td><td>Microsoft</td><td>—</td><td><span class="resource-type-pill">Managed</span></td></tr>
+            <tr><td>Default Solution</td><td>—</td><td>—</td><td><span class="badge badge-warning">Unmanaged</span></td></tr>
+            <tr><td>Common Data Services Default Solution</td><td>Microsoft</td><td>—</td><td><span class="resource-type-pill">Managed</span></td></tr>
+            <tr><td>Active Solution (and others)</td><td>Various</td><td>—</td><td><span class="text-muted">Mixed</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-header"><span class="icon">📦</span><h2>Solutions Installed — Ecellors Dev (45 solutions)</h2></div>
+      <div class="card" style="overflow-x:auto;">
+        <table>
+          <thead><tr><th>Solution</th><th>Publisher</th><th>Notes</th></tr></thead>
+          <tbody>
+            <tr><td>CoE Core Components</td><td>Microsoft CoE</td><td><span class="resource-type-pill">Governance layer</span></td></tr>
+            <tr><td>Copilot Studio Kit</td><td>Microsoft</td><td><span class="resource-type-pill">AI testing</span></td></tr>
+            <tr><td>Creator Kit</td><td>Microsoft</td><td><span class="resource-type-pill">UI components</span></td></tr>
+            <tr><td>Dataverse Accelerator</td><td>Microsoft</td><td><span class="resource-type-pill">Dev tooling</span></td></tr>
+            <tr><td>Employee Experience Base</td><td>Microsoft</td><td><span class="resource-type-pill">HR platform</span></td></tr>
+            <tr><td>Kudos (Employee Recognition)</td><td>Microsoft</td><td><span class="resource-type-pill">HR app</span></td></tr>
+            <tr><td>PowerCAT Tools</td><td>Microsoft PowerCAT</td><td><span class="resource-type-pill">Admin tooling</span></td></tr>
+            <tr><td>Milestones</td><td>Microsoft</td><td><span class="resource-type-pill">Project tracking</span></td></tr>
+            <tr><td>Training / Demo Solutions (×12+)</td><td>Various</td><td><span class="badge badge-warning">Cleanup candidate</span></td></tr>
+            <tr><td>Default Solution / Active Solution</td><td>—</td><td><span class="badge badge-warning">Unmanaged artifacts</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="finding finding-warning">
+        <h3>High number of training/demo solutions in developer environment</h3>
+        <p>Ecellors Dev contains 12+ solutions with names suggesting training exercises or demos (e.g., "Lab", "Sample", "Demo", "Workshop"). These inflate solution count, complicate audit, and may contain unreviewed custom code.</p>
+        <div class="fix">Review and delete unused training solutions. Use Solution Checker on remaining custom solutions.</div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-header"><span class="icon">⚠️</span><h2>Environments with No Admin Access (3 environments)</h2></div>
+      <div class="finding finding-critical">
+        <h3>Blind spots in tenant governance</h3>
+        <p>The environments <em>Pavan Mani Deep Yaragani</em>, <em>Leo Fernandas</em>, and <em>ContactCenter Trial</em> returned access denied errors. Solutions, apps, flows, and data policies in these environments are invisible to the tenant admin. This violates the principle that tenant admins should have visibility into all environments.</p>
+        <div class="fix">In PPAC: assign admin@Ecellors.onmicrosoft.com as System Administrator in each environment. Alternatively, use the "Manage" button in PPAC which elevates admin access without a permanent role assignment.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Recommendations Tab -->
+  <div id="tab-recommendations" class="tab-content">
+    <div class="section">
+      <div class="section-header"><span class="icon">✅</span><h2>Prioritized Recommendations</h2></div>
+      <div class="card" style="overflow-x:auto;">
+        <table>
+          <thead><tr><th>#</th><th>Priority</th><th>Action</th><th>Why It Matters</th><th>How to Fix</th></tr></thead>
+          <tbody>
+            <tr>
+              <td class="num">1</td>
+              <td><span class="badge badge-critical">Critical</span></td>
+              <td><strong>Block high-risk connectors in DLP policy</strong></td>
+              <td>Currently 0 connectors are blocked. Business data can flow to any consumer service.</td>
+              <td>Open DLP policy "Policy" in PPAC → move social media, file-sharing, and personal email connectors to Blocked bucket.</td>
+            </tr>
+            <tr>
+              <td class="num">2</td>
+              <td><span class="badge badge-critical">Critical</span></td>
+              <td><strong>Restrict environment creation to admins only</strong></td>
+              <td>Any user can create environments, bypassing DLP and governance controls.</td>
+              <td>PPAC → Settings → Environment creation → select "Only specific admins".</td>
+            </tr>
+            <tr>
+              <td class="num">3</td>
+              <td><span class="badge badge-critical">Critical</span></td>
+              <td><strong>Gain admin access to all 6 environments</strong></td>
+              <td>3 environments are currently invisible — solutions, apps, flows cannot be audited.</td>
+              <td>Assign admin@Ecellors.onmicrosoft.com as System Administrator in Leo Fernandas, Pavan Mani Deep, and ContactCenter Trial environments.</td>
+            </tr>
+            <tr>
+              <td class="num">4</td>
+              <td><span class="badge badge-critical">Critical</span></td>
+              <td><strong>Enable Managed Environments on all key envs</strong></td>
+              <td>Without Managed Environments, IP firewall, sharing limits, and usage insights are unavailable.</td>
+              <td>PPAC → Select environment → Enable Managed Environment. Requires Power Apps Premium or Power Platform license.</td>
+            </tr>
+            <tr>
+              <td class="num">5</td>
+              <td><span class="badge badge-warning">High</span></td>
+              <td><strong>Enable IP-based firewall on Default environment</strong></td>
+              <td>Dataverse in the default environment is accessible from any IP. Requires Managed Env.</td>
+              <td>After enabling Managed Env: PPAC → IP Firewall → add corporate IP ranges.</td>
+            </tr>
+            <tr>
+              <td class="num">6</td>
+              <td><span class="badge badge-warning">High</span></td>
+              <td><strong>Enable sensitivity labels</strong></td>
+              <td>Without sensitivity labels, no data classification is enforced on Dataverse records or files.</td>
+              <td>Enable Microsoft Purview integration and configure labels in PPAC → Environment settings.</td>
+            </tr>
+            <tr>
+              <td class="num">7</td>
+              <td><span class="badge badge-warning">High</span></td>
+              <td><strong>Set DLP default classification to Blocked</strong></td>
+              <td>New connectors added by Microsoft auto-inherit General (permissive) classification.</td>
+              <td>Update DLP policy via PPAC or pac CLI to set defaultConnectorsClassification = Blocked.</td>
+            </tr>
+            <tr>
+              <td class="num">8</td>
+              <td><span class="badge badge-warning">High</span></td>
+              <td><strong>Enable inactivity session timeout</strong></td>
+              <td>Sessions never expire, increasing risk of session hijacking on shared/unattended machines.</td>
+              <td>PPAC → Environment → Settings → Product → Session Management → set inactivity timeout (e.g., 60 min).</td>
+            </tr>
+            <tr>
+              <td class="num">9</td>
+              <td><span class="badge badge-warning">Medium</span></td>
+              <td><strong>Increase audit log retention beyond 30 days</strong></td>
+              <td>30 days is insufficient for security investigations or compliance audits.</td>
+              <td>PPAC → Environment settings → Audit and Logs → set retention to 90 or 180 days.</td>
+            </tr>
+            <tr>
+              <td class="num">10</td>
+              <td><span class="badge badge-info">Low</span></td>
+              <td><strong>Review ContactCenter Trial expiry</strong></td>
+              <td>Trial environments expire and may lose data if not converted or extended.</td>
+              <td>PPAC → ContactCenter Trial → Convert to sandbox or extend trial before expiry.</td>
+            </tr>
+            <tr>
+              <td class="num">11</td>
+              <td><span class="badge badge-info">Low</span></td>
+              <td><strong>Clean up training/demo solutions in Ecellors Dev</strong></td>
+              <td>12+ unneeded solutions inflate complexity and audit surface.</td>
+              <td>Review solution list, delete unused solutions, run Solution Checker on custom solutions.</td>
+            </tr>
+            <tr>
+              <td class="num">12</td>
+              <td><span class="badge badge-info">Low</span></td>
+              <td><strong>Review OpenAI bot publishing setting</strong></td>
+              <td>External bot publishing is enabled — review whether this is intentional and scoped appropriately.</td>
+              <td>Tenant Settings → Copilot Studio → External publishing → restrict if not needed.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="footer">
+  Power Platform Inventory Report · Tenant: Ecellors.onmicrosoft.com · Generated 2026-04-19 09:55 UTC ·
+  Data collected via <code>pac admin list-tenant-settings</code>, <code>pac admin dlp-policy list/show</code>, <code>pac admin list</code>, <code>pac env list-settings</code>, <code>pac solution list</code>
+</div>
+
+<script>
+function showTab(name) {
+  document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(el => el.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  event.target.classList.add('active');
+}
+
+const toggle = document.getElementById('themeToggle');
+function applyTheme(theme) {
+  document.documentElement.dataset.theme = theme;
+  toggle.textContent = theme === 'dark' ? '🌙' : '☀️';
+  localStorage.setItem('pp-report-theme', theme);
+}
+toggle.addEventListener('click', () => {
+  applyTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
+});
+applyTheme(document.documentElement.dataset.theme || 'dark');
+</script>
+</body>
+</html>
