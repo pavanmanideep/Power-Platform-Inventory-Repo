@@ -1,9 +1,53 @@
+##############################################################################
+# Daily Power Platform Inventory Report
+#
+# MULTI-TENANT SETUP
+# ─────────────────────────────────────────────────────────────────────────────
+# This workflow uses GitHub Environments to support multiple tenants.
+# Each tenant gets its own GitHub Environment (Settings → Environments) with
+# its own set of secrets. To add a new tenant:
+#
+#   1. Go to Settings → Environments → New environment
+#      Name it something recognisable, e.g. "contoso" or "fabrikam"
+#
+#   2. Add the following secrets to that environment:
+#      AZURE_CREDENTIALS  — Service principal JSON:
+#                           { "clientId":"...", "clientSecret":"...",
+#                             "subscriptionId":"...", "tenantId":"..." }
+#      PP_CLIENT_ID       — App registration clientId for pac CLI
+#      PP_CLIENT_SECRET   — App registration client secret
+#      PP_TENANT_ID       — AAD Tenant GUID
+#      PP_TENANT_DOMAIN   — e.g. contoso.onmicrosoft.com
+#
+#   3. To run the report for that tenant:
+#      Actions → "Daily Power Platform Inventory Report" → Run workflow
+#      → set target_environment to the environment name (e.g. "contoso")
+#
+#   4. The schedule always uses the default "production" environment.
+#      Change the default below or add additional scheduled jobs per tenant.
+##############################################################################
+
 name: Daily Power Platform Inventory Report
 
 on:
   schedule:
     - cron: '0 6 * * *'   # Every day at 06:00 UTC
-  workflow_dispatch:        # Allow manual trigger from GitHub Actions UI
+  workflow_dispatch:
+    inputs:
+      target_environment:
+        description: |
+          GitHub Environment to use (maps to a set of tenant-specific secrets).
+          Create one GitHub Environment per tenant in Settings → Environments,
+          each with its own PP_CLIENT_ID, PP_CLIENT_SECRET, PP_TENANT_ID,
+          PP_TENANT_DOMAIN, and AZURE_CREDENTIALS secrets.
+        required: false
+        default: 'production'
+        type: string
+      tenant_label:
+        description: 'Optional display label override (e.g. "Contoso"). Falls back to PP_TENANT_DOMAIN secret.'
+        required: false
+        default: ''
+        type: string
 
 permissions:
   contents: write           # Required to commit and push the generated report
@@ -14,6 +58,11 @@ jobs:
   generate-report:
     name: Generate Inventory Report
     runs-on: ubuntu-latest
+    # Each GitHub Environment holds tenant-specific secrets.
+    # To target a different tenant, create a new Environment in
+    # Settings → Environments with its own credential secrets,
+    # then pass its name via the target_environment input.
+    environment: ${{ inputs.target_environment || 'production' }}
 
     env:
       REPORT_DATE: ''
@@ -141,6 +190,9 @@ jobs:
 
       # ── 9. Generate the HTML report ───────────────────────────────────────────
       - name: Generate HTML report
+        env:
+          PP_TENANT_ID:     ${{ secrets.PP_TENANT_ID }}
+          PP_TENANT_DOMAIN: ${{ secrets.PP_TENANT_DOMAIN || inputs.tenant_label }}
         run: |
           mkdir -p "${{ env.REPORT_DIR }}"
           node scripts/generate-report.mjs \
