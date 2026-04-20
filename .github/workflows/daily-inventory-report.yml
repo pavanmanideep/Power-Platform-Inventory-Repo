@@ -217,67 +217,7 @@ jobs:
           git commit -m "chore: daily inventory report ${{ env.REPORT_DATE }}-${{ env.REPORT_TIME }}"
           git push
 
-      # ── 12. Upload to Azure Blob Storage (permanent versioned history) ────────
-      # One-time setup — run these commands once per tenant to create the
-      # storage account and enable static website hosting:
-      #
-      #   az group create --name rg-pp-inventory --location southindia
-      #   az storage account create \
-      #     --name ppinventory<UNIQUE_SUFFIX> \
-      #     --resource-group rg-pp-inventory \
-      #     --sku Standard_LRS \
-      #     --allow-blob-public-access true
-      #   az storage blob service-properties update \
-      #     --account-name ppinventory<UNIQUE_SUFFIX> \
-      #     --static-website \
-      #     --index-document index.html \
-      #     --404-document index.html
-      #
-      # Then add STORAGE_ACCOUNT_NAME = ppinventory<UNIQUE_SUFFIX>
-      # as a secret in the GitHub Environment for this tenant.
-      #
-      # After setup, reports are permanently accessible at:
-      #   Latest:    https://<account>.z13.web.core.windows.net/
-      #   Versioned: https://<account>.z13.web.core.windows.net/reports/YYYYMMDD/HHmm/inventory-report.html
-      - name: Upload report to Azure Blob Storage
-        if: ${{ secrets.STORAGE_ACCOUNT_NAME != '' }}
-        env:
-          STORAGE_ACCOUNT: ${{ secrets.STORAGE_ACCOUNT_NAME }}
-        run: |
-          if [ -z "$STORAGE_ACCOUNT" ]; then
-            echo "⚠️  STORAGE_ACCOUNT_NAME secret not set — skipping blob upload."
-            echo "    See workflow comments for one-time setup instructions."
-            exit 0
-          fi
-
-          # Upload versioned copy: reports/YYYYMMDD/HHmm/inventory-report.html
-          az storage blob upload \
-            --account-name "$STORAGE_ACCOUNT" \
-            --container-name "\$web" \
-            --name "reports/${{ env.REPORT_DATE }}/${{ env.REPORT_TIME }}/inventory-report.html" \
-            --file  "${{ env.REPORT_DIR }}/inventory-report.html" \
-            --content-type "text/html" \
-            --overwrite \
-            --auth-mode login
-
-          # Upload as index.html (always the latest report)
-          az storage blob upload \
-            --account-name "$STORAGE_ACCOUNT" \
-            --container-name "\$web" \
-            --name "index.html" \
-            --file  "${{ env.REPORT_DIR }}/inventory-report.html" \
-            --content-type "text/html" \
-            --overwrite \
-            --auth-mode login
-
-          STATIC_URL=$(az storage account show \
-            --name "$STORAGE_ACCOUNT" \
-            --query "primaryEndpoints.web" -o tsv)
-          echo "✅ Report published:"
-          echo "   Latest:    ${STATIC_URL}"
-          echo "   Versioned: ${STATIC_URL}reports/${{ env.REPORT_DATE }}/${{ env.REPORT_TIME }}/inventory-report.html"
-
-      # ── 13. Upload report as Actions artifact (30-day backup) ────────────────
+      # ── 12. Upload report as Actions artifact (90-day backup) ────────────────
       - name: Upload report artifact
         uses: actions/upload-artifact@v4
         with:
